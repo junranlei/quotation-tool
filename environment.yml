@@ -22,4 +22,5 @@ dependencies:
       - pymongo==4.1.1
       - pyexcelerate==0.10.0
       - atap-corpus-slicer==0.3.5
+      - rpy2==3.6.4
       - https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.4.1/en_core_web_lg-3.4.1-py3-none-any.whl
