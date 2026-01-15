@@ -49,7 +49,7 @@ quotation-tool/
 ├── proceeding/           # R scripts and data
 │   ├── Pre-ATAP.R       # Article preprocessing
 │   ├── Post-ATAP.R      # Statement creation from quotes
-│   ├── move_and_rename_columns.R  # Data formatting
+│   ├── move_and_rename_columns.R  # Data moving and renaming
 │   ├── Articles.csv     # Raw article data
 │   └── Masterlist.csv   # Entity reference list
 ├── output/              # Quote extraction outputs
@@ -81,24 +81,11 @@ The workflow uses `rpy2` to execute R scripts from Python, enabling seamless int
 
 ## Running the Notebook
 
-### Option 1: Cloud-based (Binder)
-Launch the notebook directly in the cloud with minimal setup:
-
-[![Binder](https://binderhub.atap-binder.cloud.edu.au/badge_logo.svg)](https://binderhub.atap-binder.cloud.edu.au/v2/gh/Australian-Text-Analytics-Platform/quotation-tool.git/HEAD?labpath=quote_extractor_notebook_forcsvfiles.ipynb)
-
-<b>Note:</b> CILogon authentication is required. You can use your institutional, Google or Microsoft account to login. If you have trouble authenticating, please refer to the [CILogon troubleshooting guide](documents/cilogon-troubleshooting.pdf).
-
-Alternative free Binder version (limited to 2GB memory):   
-
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Australian-Text-Analytics-Platform/quotation-tool/HEAD?labpath=quote_extractor_notebook_forcsvfiles.ipynb)
-
-### Option 2: Local Installation
 1. Clone the repository
 2. Install Python dependencies: `pip install -r requirements.txt`
 3. Install R and required packages (see Prerequisites above)
 4. Open `quote_extractor_notebook_forcsvfiles.ipynb` in Jupyter
 
-It may take a few minutes for Binder to launch the notebook and install dependencies. Please be patient.
 
 ## Workflow Execution
 
@@ -166,8 +153,7 @@ The final output (`final_statements.csv`) provides statement-level data where:
 ## Data Processing Notes
 
 ### Memory Considerations
-Processing large corpora may require significant memory. For Binder deployments:
-- Free tier: Maximum 2GB memory
+Processing large corpora may require significant memory. 
 - Large files may cause kernel restarts
 - Consider splitting large datasets into smaller batches
 
