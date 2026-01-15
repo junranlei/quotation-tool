@@ -1,73 +1,226 @@
-# Quotation Tool
+# Statement Creation Pipeline with Quotation Tool
 
-<b>Abstract:</b> This QuotationTool can be used to extract quotes from a text. In addition to extracting the quotes, the tool also provides information about who the speakers are, the location of the quotes (and the speakers) within the text, the identified named entities, etc., which can be useful for your text analysis.
+<b>Abstract:</b> This notebook documents a complete workflow for constructing statement-level datasets from raw news articles. The pipeline integrates R-based preprocessing with Python-based quote extraction to move from unstructured article text to a structured dataset of direct group statements, suitable for computational analysis of media voice, framing, and public interest advocacy.
 
-## Coreference feature
+## Workflow Overview
 
-This branch of the Quotation Tool contains an experimental coreference feature. This feature provides the proper name of the speaker when only a pronoun is provided. Considering the following text as an example:
+The pipeline proceeds through five main stages:
 
-```text
-The Prime Minister said "Inflation is the primary concern of this government." He continued, "It is a pressing issue for every Australian."
+### 1. Article Ingestion and Pre-processing (Pre-ATAP)
+Raw news articles are imported, cleaned, and standardized using R scripts. This includes:
+- Removing formatting artifacts and normalizing dates
+- Identifying entities mentioned in articles
+- Preparing articles for quote extraction
+- **Output**: `articles_with_mentions` dataset containing articles with entity mentions
+
+### 2. Quote Extraction (ATAP QuotationTool)
+Direct speech is identified using the ATAP quotation tool, which provides:
+- Extracted quotes with speaker identification
+- Named entity recognition within quotes
+- Quote locations and metadata
+- **Output**: CSV files with extracted quotes in the `output` folder
+
+### 3. Speaker Identification and Entity Matching (Post-ATAP)
+Extracted quotes are linked to speakers using:
+- Named-entity recognition
+- Rule-based matching to entity masterlist
+- Assignment of quotes to specific interest groups
+- **Output**: Matched quotes with entity identifiers
+
+### 4. Statement Validation and Filtering
+Automated assignments are filtered to:
+- Remove misattributions and ambiguous speakers
+- Validate speaker-entity matches
+- Filter non-substantive quotations
+- **Output**: High-confidence statement dataset
+
+### 5. Context Enrichment
+Each validated quote is enriched with:
+- Surrounding paragraph context
+- Source article information
+- Entity and speaker metadata
+- **Output**: Final statement-level dataset (`final_statements.csv`)
+
+## Required Files and Setup
+
+### Directory Structure
+```
+quotation-tool/
+├── proceeding/           # R scripts and data
+│   ├── Pre-ATAP.R       # Article preprocessing
+│   ├── Post-ATAP.R      # Statement creation from quotes
+│   ├── move_and_rename_columns.R  # Data formatting
+│   ├── Articles.csv     # Raw article data
+│   └── Masterlist.csv   # Entity reference list
+├── output/              # Quote extraction outputs
+└── quote_extractor_notebook_forcsvfiles.ipynb
 ```
 
-Without the coreference feature, the second quote would be attributed to the speaker "He". With the coreference feature, the second quote would be attributed to the speaker "The Prime Minister".
+### Input Requirements
+- **Articles.csv**: Raw news articles with columns for article ID, body text, title, publication date, and outlet
+- **Masterlist.csv**: Entity reference list with unique IDs, names, and alternative name variations
 
-**Limitations**
+## Prerequisites
 
-This feature is experimental and has not been merged into the main Quotation Tool because of a memory leak issue. A relatively small corpus will cause a relatively large amount of memory to be consumed. The Binder instances used to ensure the portability of the application have limited memory and this issue has caused the Quotation Tool to unexpectedly stop working. If coreference is not a key requirement in your analysis, it is advised to switch to the main Quotation Tool (found on the main branch).
+### Python Environment
+The notebook requires Python packages listed in `requirements.txt`:
+```bash
+pip install -r requirements.txt
+```
 
-_Recommended solutions_
+### R Environment
+Required R packages will be installed automatically via the notebook, or manually:
+```R
+install.packages(c("readxl", "openxlsx", "tidyr", "dplyr", 
+                   "stringdist", "lubridate", "readr", "stringr", "progress"),
+                 repos="https://cloud.r-project.org")
+```
 
-If the corpus you are attempting to analyse is unable to be processed by the Quotation Tool, try one of the following potential solutions:
+### R-Python Integration
+The workflow uses `rpy2` to execute R scripts from Python, enabling seamless integration of preprocessing and analysis stages
 
-- Divide the corpus into smaller chunks and process each one individually
-- Run the Quotation Tool on your own machine by downloading and running the code in the repository
-- Reduce the size of individual documents by extracting the relevant context. This can be done with the [ATAP Context Extractor](https://github.com/Australian-Text-Analytics-Platform/atap-context-extractor)
+## Running the Notebook
 
+### Option 1: Cloud-based (Binder)
+Launch the notebook directly in the cloud with minimal setup:
 
-## Setup
-This tool has been designed for use with minimal setup from users. You are able to run it in the cloud and any dependencies with other packages will be installed for you automatically. In order to launch and use the tool, you just need to click the below icon.
-
-[![Binder](https://binderhub.atap-binder.cloud.edu.au/badge_logo.svg)](https://binderhub.atap-binder.cloud.edu.au/v2/gh/Australian-Text-Analytics-Platform/quotation-tool.git/a10e91e3735c777f6711f157921d547b714f8f3a?labpath=quote_extractor_notebook.ipynb)
+[![Binder](https://binderhub.atap-binder.cloud.edu.au/badge_logo.svg)](https://binderhub.atap-binder.cloud.edu.au/v2/gh/Australian-Text-Analytics-Platform/quotation-tool.git/HEAD?labpath=quote_extractor_notebook_forcsvfiles.ipynb)
 
 <b>Note:</b> CILogon authentication is required. You can use your institutional, Google or Microsoft account to login. If you have trouble authenticating, please refer to the [CILogon troubleshooting guide](documents/cilogon-troubleshooting.pdf).
 
-If you do not have access to any of the above accounts, you can use the below link to access the tool (this is a free Binder version, limited to 2GB memory only).   
+Alternative free Binder version (limited to 2GB memory):   
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Australian-Text-Analytics-Platform/quotation-tool/a10e91e3735c777f6711f157921d547b714f8f3a?labpath=quote_extractor_notebook.ipynb)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Australian-Text-Analytics-Platform/quotation-tool/HEAD?labpath=quote_extractor_notebook_forcsvfiles.ipynb)
 
-It may take a few minutes for Binder to launch the notebook and install the dependencies for the tool. Please be patient.
+### Option 2: Local Installation
+1. Clone the repository
+2. Install Python dependencies: `pip install -r requirements.txt`
+3. Install R and required packages (see Prerequisites above)
+4. Open `quote_extractor_notebook_forcsvfiles.ipynb` in Jupyter
 
-## User Guide
+It may take a few minutes for Binder to launch the notebook and install dependencies. Please be patient.
 
-For instructions on how to use the Quotation Tool, please refer to the [Quotation Tool User Guide](documents/quotation_help_pages.pdf).
+## Workflow Execution
 
-## Load the data
-<table style='margin-left: 10px'><tr>
-<td> <img width='45' src='./img/txt_icon.png'/> </td>
-<td> <img width='45' src='./img/xlsx_icon.png'/> </td>
-<td> <img width='45' src='./img/csv_icon.png'/> </td>
-<td> <img width='45'src='./img/zip_icon.png'/> </td>
-</tr></table>
+### Step 1: Pre-ATAP Processing
+The notebook executes `Pre-ATAP.R` which:
+- Loads articles from `proceeding/Articles.csv`
+- Loads entity masterlist from `proceeding/Masterlist.csv`
+- Cleans and preprocesses articles
+- Identifies entity mentions in each article
+- Creates `articles_with_mentions` dataset
 
-Using this tool, you can extract quotes directly from a text file (or a number of text files). Alternatively, you can also extract quotes from a text column inside your excel spreadsheet. You just need to upload your files (.txt, .xlsx or .csv) and access them via the Notebook.  
+### Step 2: Column Formatting
+Executes `move_and_rename_columns.R` to prepare data for quotation tool
 
-<b>Note:</b> If you have a large number of text files (more than 10MB in total), we suggest you compress (zip) them and upload the zip file instead. If you need assistance on how to compress your file, please check [the user guide](https://github.com/Australian-Text-Analytics-Platform/quotation-tool/blob/main/documents/jupyter-notebook-guide.pdf).  
+### Step 3: Quote Extraction
+The ATAP QuotationTool processes files and generates output CSV files containing:
+- **text_id/text_name**: Article identifiers
+- **quote_id/speaker_id**: Unique quote/speaker identifiers  
+- **quote/speaker**: Extracted quote content and speaker
+- **verb**: Reporting verb used
+- **quote_index/speaker_index/verb_index**: Character positions in text
+- **quote_entities/speaker_entities**: Named entities (PERSON, ORG, GPE, etc.)
+- **quote_token_count**: Quote length
+- **quote_type**: Extraction method used
+- **is_floating_quote**: Whether quote is follow-up from same speaker
 
+### Step 4: Post-ATAP Processing
+Executes `Post-ATAP.R` which:
+1. Loads quote extraction outputs from `output` folder
+2. Matches speakers to entities from masterlist
+3. Identifies relevant quotes from target entities
+4. Extracts paragraph context around each quote
+5. Creates final statement dataset
 
-## Extract and Display the Quotes
-Once your files have been uploaded, you can use the QuotationTool to extract quotes from the text. The quotes, along with their metadata, will be stored in a table format inside a pandas dataframe. 
+### Final Output
+The pipeline produces `output/final_statements.csv` containing:
+- **text_name**: Article identifier (title)
+- **uniqid**: Entity unique identifier
+- **paragraph_context**: Quote(s) with surrounding paragraph text
 
-<img width='740' src='./img/quotes_df.png'/> 
+## Understanding the Output
 
-Additionally, using the interactive tool, you can display the text, along with the extracted quotes, speakers and named entities, on the Notebook for further analysis.
+### Quote Extraction Metadata
+The quotation tool uses syntactic and heuristic rules to identify direct speech. For detailed information about the extraction process, see [this document](https://doi.org/10.1371/journal.pone.0245533.s001).
 
-<img width='740' src='./img/quote_display.png'/>
+**Named Entity Types:**
+- **PERSON**: People, including fictional characters
+- **NORP**: Nationalities, religious or political groups
+- **FAC**: Buildings, airports, highways
+- **ORG**: Companies, agencies, institutions
+- **GPE**: Countries, cities, states
+- **LOC**: Non-GPE locations, mountain ranges, bodies of water
 
-## Reference
-This code has been adapted (with permission) from the [GenderGapTracker GitHub page](https://github.com/sfu-discourse-lab/GenderGapTracker/tree/master/NLP/main) and modified to run on a Jupyter Notebook. The quotation tool’s accuracy rate is evaluated in [this article](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0245533).  
+**Quote Types:**
+- Syntactic quotes (e.g., SVC, QVS patterns)
+- Heuristic quotes based on quotation marks
+- Floating quotes (follow-up statements from same speaker)
+
+### Statement Dataset
+The final output (`final_statements.csv`) provides statement-level data where:
+- Each row represents quotes from a specific entity in a specific article
+- Multiple quotes from the same entity-article are concatenated with " // "
+- Paragraph context preserves interpretive meaning for analysis
+
+## Data Processing Notes
+
+### Memory Considerations
+Processing large corpora may require significant memory. For Binder deployments:
+- Free tier: Maximum 2GB memory
+- Large files may cause kernel restarts
+- Consider splitting large datasets into smaller batches
+
+### Performance
+As a guideline:
+- ~26,000 newspaper articles (54MB): ~45 minutes for quote extraction
+- Processing time depends on corpus size and complexity
+- Pre-ATAP and Post-ATAP stages are typically faster than quote extraction
+
+## Additional Resources
+
+### User Guides
+- [Quotation Tool User Guide](documents/quotation_help_pages.pdf)
+- [Jupyter Notebook Guide](documents/jupyter-notebook-guide.pdf)
+- [CILogon Troubleshooting](documents/cilogon-troubleshooting.pdf)
+
+### Troubleshooting
+
+**Memory Issues:**
+- Divide large corpora into smaller batches
+- Run locally instead of on Binder for larger datasets
+- Use the [ATAP Context Extractor](https://github.com/Australian-Text-Analytics-Platform/atap-context-extractor) to reduce document size
+
+**Missing Columns or Errors:**
+- Ensure Articles.csv has required columns: `an`, `body`, `title`, `publication_datetime`, `outlet`
+- Ensure Masterlist.csv has required columns: `uniqid`, `name`, and optional `name_alt1-4`, `abbreviation`
+- Check that CSV files are properly formatted and encoded (UTF-8)
+
+**No Statements Generated:**
+- Verify entities in Masterlist.csv are actually mentioned in articles
+- Check that quote extraction found quotes (check `output` folder)
+- Review entity name variations in Masterlist.csv for better matching
+
+## Reference and Acknowledgments
+
+This workflow integrates:
+- The ATAP QuotationTool, adapted (with permission) from the [GenderGapTracker](https://github.com/sfu-discourse-lab/GenderGapTracker/tree/master/nlp/english)
+- Custom R-based preprocessing and statement creation pipeline
+- The quotation tool's accuracy is evaluated in [this article](https://doi.org/10.1371/journal.pone.0245533)
 
 ## Citation
-If you find the Quotation Tool useful in your research, please cite the following:  
 
-Jufri, Sony & Sun, Chao (2022). Quotation Tool. v1.0. Australian Text Analytics Platform. Software. https://github.com/Australian-Text-Analytics-Platform/quotation-tool
+If you use this statement creation pipeline or the Quotation Tool in your research, please cite:
+
+```
+Jufri, Sony & Sun, Chao (2022). Quotation Tool. v1.0. 
+Australian Text Analytics Platform. Software. 
+https://github.com/Australian-Text-Analytics-Platform/quotation-tool
+```
+
+For the original GenderGapTracker quote extractor:
+```
+Asr, Fatemeh Torabi, et al. "The Gender Gap Tracker: Using Natural Language 
+Processing to measure gender bias in media." PloS one 16.1 (2021): e0245533.
+https://doi.org/10.1371/journal.pone.0245533
+```

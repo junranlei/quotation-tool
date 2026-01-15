@@ -20,8 +20,8 @@ CHUNK_SIZE <- 10000  # Rows per processing chunk
 MIN_ARTICLE_LENGTH <- 200  # Minimum article length in characters
 
 # Load datasets
-articles_path   <- "input/Articles.csv"       # raw articles
-searchlist_path <- "input/Masterlist.csv"     # entity searchlist
+articles_path   <- "proceeding/Articles.csv"       # raw articles
+searchlist_path <- "proceeding/Masterlist.csv"     # entity searchlist
 
 articles   <- read.csv(articles_path, stringsAsFactors = FALSE)
 searchlist <- read.csv(searchlist_path, stringsAsFactors = FALSE)
@@ -303,8 +303,8 @@ pre <- prepare_atap_input(
 # ==============================================================================
 
 # Define output paths
-input_clean_path   <- "input/articles_clean.csv"
-input_atap_path    <- "input/articles_with_mentions.csv"
+input_clean_path   <- "proceeding/articles_clean.csv"
+input_atap_path    <- "proceeding/articles_with_mentions.csv"
 
 # Save files
 write.csv(pre$articles_clean,

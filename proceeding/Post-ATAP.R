@@ -36,21 +36,43 @@ load_atap_quotes <- function(
   
   cat("Loading ATAP quote extractions from /output...\n")
   
-  # Identify all matching ATAP files
-  atap_files <- list.files(
+  # Identify all matching ATAP files (try both .csv and .xlsx)
+  atap_files_csv <- list.files(
+    path       = output_dir,
+    pattern    = paste0("^", file_stub, ".*\\.csv$"),
+    full.names = TRUE
+  )
+  
+  atap_files_xlsx <- list.files(
     path       = output_dir,
     pattern    = paste0("^", file_stub, ".*\\.xlsx$"),
     full.names = TRUE
   )
+  
+  atap_files <- c(atap_files_csv, atap_files_xlsx)
   
   # Check that files exist
   if (length(atap_files) == 0) {
     stop("No ATAP quote files found in /output matching: ", file_stub)
   }
   
-  # Read and combine files
-  quotes <- lapply(atap_files, readxl::read_excel) %>%
-    dplyr::bind_rows()
+  # Read and combine files based on extension
+  quotes_list <- lapply(atap_files, function(file) {
+    if (grepl("\\.csv$", file, ignore.case = TRUE)) {
+      cat("  Reading CSV:", basename(file), "\n")
+      read.csv(file, stringsAsFactors = FALSE)
+    } else if (grepl("\\.(xlsx|xls)$", file, ignore.case = TRUE)) {
+      cat("  Reading Excel:", basename(file), "\n")
+      readxl::read_excel(file)
+    } else {
+      warning("Skipping unrecognized file format:", file)
+      NULL
+    }
+  })
+  
+  # Remove NULL entries and combine
+  quotes_list <- Filter(Negate(is.null), quotes_list)
+  quotes <- dplyr::bind_rows(quotes_list)
   
   # Validate expected columns
   required_quote_cols <- c(
@@ -73,10 +95,10 @@ load_atap_quotes <- function(
 #' Prepare searchlist with group information
 #'
 #' This function standardises group names and name variants in the
-#' entity searchlist loaded from the /input directory. Only columns
+#' entity searchlist loaded from the /proceeding directory. Only columns
 #' that exist in the provided dataset are processed.
 #'
-#' @param searchlist Entity search list (loaded from /input)
+#' @param searchlist Entity search list (loaded from /proceeding)
 #' @return Processed searchlist
 prepare_searchlist <- function(searchlist) {
   
@@ -182,17 +204,20 @@ process_quote_entities <- function(quotes, articles_subset, searchlist) {
   
   # Join with article information
   matched_data <- org_person_pairs %>%
-    left_join(articles_subset, by = c("text_name" = "an")) %>%
+    left_join(articles_subset, by = c("text_name" = "an"), relationship = "many-to-many") %>%
     rowwise() %>%
     mutate(
       matched_name = {
         # Check each existing column for matches
+        result <- NA_character_
         for (col in existing_match_cols) {
-          if (!is.na(get(col)) && ORG == get(col)) {
-            return(get("name"))  # Always return the primary name
+          col_value <- get(col)
+          if (!is.na(col_value) && ORG == col_value) {
+            result <- get("name")  # Always return the primary name
+            break
           }
         }
-        NA_character_
+        result
       }
     ) %>%
     ungroup()
@@ -410,10 +435,71 @@ create_statements_from_atap <- function(articles_clean, searchlist) {
     stop("Column 'an' (article name/id) not found in articles dataset")
   }
   
+  # Debug: Check for matching issues
+  cat("Debug info:\n")
+  cat("  Columns in articles_clean:", paste(names(articles_clean), collapse=", "), "\n")
+  cat("  Columns in quotes:", paste(names(quotes), collapse=", "), "\n")
+  cat("  First text_name from quotes:", quotes$text_name[1], "\n")
+  cat("  First 5 'an' from articles_clean:", head(articles_clean$an, 5), "\n")
+  
+  # Check if there's a title or body column that might match
+  if ("title" %in% names(articles_clean)) {
+    cat("  First 5 'title' from articles_clean:", head(articles_clean$title, 5), "\n")
+  }
+  if ("body" %in% names(articles_clean)) {
+    cat("  First body preview:", substr(articles_clean$body[1], 1, 100), "...\n")
+  }
+  
+  cat("  Total articles in articles_clean:", nrow(articles_clean), "\n")
+  
+  # The text_name in quotes appears to be article titles/text, not the 'an' ID
+  # We need to match on the correct field. Let's try title first, then body
+  quotes_normalized <- quotes %>%
+    dplyr::mutate(text_name_normalized = tolower(trimws(as.character(text_name))))
+  
+  # Try matching on title or body
+  if ("title" %in% names(articles_clean)) {
+    articles_clean_normalized <- articles_clean %>%
+      dplyr::mutate(
+        match_key = tolower(trimws(as.character(title))),
+        # Use title as 'an' for downstream matching since quotes use title
+        an = as.character(title)
+      )
+  } else if ("body" %in% names(articles_clean)) {
+    # If text_name might be in the body, we need a different approach
+    articles_clean_normalized <- articles_clean %>%
+      dplyr::mutate(match_key = tolower(trimws(as.character(an))))
+    cat("  Warning: No 'title' column found. Trying to match on 'an' but this may not work.\n")
+  } else {
+    articles_clean_normalized <- articles_clean %>%
+      dplyr::mutate(match_key = tolower(trimws(as.character(an))))
+  }
+  
   # Subset articles to those for which ATAP produced quotes
-  articles_subset <- articles_clean %>%
-    dplyr::filter(an %in% quotes$text_name) %>%
-    dplyr::mutate(uniqid = as.character(uniqid)) %>%
+  # and expand mentioned_entities to create one row per uniqid
+  articles_subset <- articles_clean_normalized %>%
+    dplyr::filter(match_key %in% quotes_normalized$text_name_normalized)
+  
+  # Check if mentioned_entities column exists
+  if ("mentioned_entities" %in% names(articles_subset)) {
+    # Split the semicolon-separated uniqids and expand
+    articles_subset <- articles_subset %>%
+      dplyr::mutate(
+        uniqid = strsplit(as.character(mentioned_entities), ";")
+      ) %>%
+      tidyr::unnest(uniqid) %>%
+      dplyr::mutate(uniqid = trimws(as.character(uniqid)))
+  } else {
+    # If no mentioned_entities column, create rows for all entities in searchlist
+    # This allows entity matching to work even without pre-filtering
+    cat("  Note: No 'mentioned_entities' column found. Will try all entities.\n")
+    articles_with_entities <- articles_subset %>%
+      tidyr::crossing(uniqid = searchlist_processed$uniqid)
+    articles_subset <- articles_with_entities
+  }
+  
+  # Join with searchlist to get entity names
+  articles_subset <- articles_subset %>%
     dplyr::left_join(
       searchlist_processed %>%
         dplyr::select(dplyr::any_of(c(
@@ -448,14 +534,19 @@ create_statements_from_atap <- function(articles_clean, searchlist) {
 # FULL WORKFLOW
 # ==============================================================================
 
-FILE_PATH_ATAP <- "/output" # Path to folder where ATAP quote extractions will be saved
-quotes_path     <- "output/quotes.xlsx"     # ATAP quotes (Excel)
-quotes     <- readxl::read_excel(quotes_path)
+# Load required data
+searchlist_path <- "proceeding/Masterlist.csv"
+searchlist <- read.csv(searchlist_path, stringsAsFactors = FALSE)
+
+#FILE_PATH_ATAP <- "/output" # Path to folder where ATAP quote extractions will be saved
+#quotes_path     <- "output/quotes.xlsx"     # ATAP quotes (Excel)
+#quotes     <- readxl::read_excel(quotes_path)
 
 # 4. Once quotes are available, run post-ATAP
+# Use articles_with_mentions which contains the mentioned_entities column
 final_statements <- create_statements_from_atap(
-  articles_clean = pre$articles_clean,
-  searchlist     = datasets$searchlist
+  articles_clean = pre$articles_with_mentions,
+  searchlist     = searchlist
 )
 
 # ==============================================================================
@@ -466,7 +557,7 @@ final_statements <- create_statements_from_atap(
 output_statement_path    <- "output/final_statements.csv"
 
 write.csv(final_statements,
-          file = output_statement_path
+          file = output_statement_path,
           row.names = FALSE)
 
 cat("Statements saved to /output:\n")
