@@ -452,33 +452,15 @@ create_statements_from_atap <- function(articles_clean, searchlist) {
   
   cat("  Total articles in articles_clean:", nrow(articles_clean), "\n")
   
-  # The text_name in quotes appears to be article titles/text, not the 'an' ID
-  # We need to match on the correct field. Let's try title first, then body
-  quotes_normalized <- quotes %>%
-    dplyr::mutate(text_name_normalized = tolower(trimws(as.character(text_name))))
-  
-  # Try matching on title or body
-  if ("title" %in% names(articles_clean)) {
-    articles_clean_normalized <- articles_clean %>%
-      dplyr::mutate(
-        match_key = tolower(trimws(as.character(title))),
-        # Use title as 'an' for downstream matching since quotes use title
-        an = as.character(title)
-      )
-  } else if ("body" %in% names(articles_clean)) {
-    # If text_name might be in the body, we need a different approach
-    articles_clean_normalized <- articles_clean %>%
-      dplyr::mutate(match_key = tolower(trimws(as.character(an))))
-    cat("  Warning: No 'title' column found. Trying to match on 'an' but this may not work.\n")
-  } else {
-    articles_clean_normalized <- articles_clean %>%
-      dplyr::mutate(match_key = tolower(trimws(as.character(an))))
-  }
-  
-  # Subset articles to those for which ATAP produced quotes
-  # and expand mentioned_entities to create one row per uniqid
-  articles_subset <- articles_clean_normalized %>%
-    dplyr::filter(match_key %in% quotes_normalized$text_name_normalized)
+  # Match ATAP quotes to articles by ID:
+  # quotes$text_name contains the article ID (same as articles_clean$an)
+  articles_clean$an <- as.character(articles_clean$an)
+  quotes$text_name  <- as.character(quotes$text_name)
+
+  articles_subset <- articles_clean %>%
+    dplyr::filter(an %in% quotes$text_name)
+
+cat("  nrow(articles_subset) =", nrow(articles_subset), "\n")
   
   # Check if mentioned_entities column exists
   if ("mentioned_entities" %in% names(articles_subset)) {
