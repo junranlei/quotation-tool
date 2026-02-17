@@ -9,7 +9,7 @@ articles_df <- read.csv(input_file, stringsAsFactors = FALSE)
 # Rename columns: body -> text, title -> text_name
 cat("Renaming columns...\n")
 names(articles_df)[names(articles_df) == "body"] <- "text"
-names(articles_df)[names(articles_df) == "title"] <- "text_name"
+names(articles_df)[names(articles_df) == "title"] <- "an"
 
 # Write to input folder
 cat("Writing file to input folder...\n")
