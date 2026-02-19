@@ -133,6 +133,15 @@ preprocess_articles <- function(articles) {
 # STEP 2: ARTICLE SUBSETTING BY MENTIONS
 # ==============================================================================
 
+#' Normalise Unicode apostrophes and quotes to ASCII equivalents
+#' @param s Character string to normalise
+#' @return Normalised string
+normalize_unicode <- function(s) {
+  s <- gsub("\u2018|\u2019", "'", s)  # curly single quotes → straight
+  s <- gsub("\u201c|\u201d", '"', s)  # curly double quotes → straight
+  s
+}
+
 #' Create regex patterns for entity search (FIXED)
 #' @param searchlist Data frame with entity names and alternatives
 #' @return Data frame with regex patterns
@@ -159,17 +168,17 @@ create_search_patterns <- function(searchlist) {
         
         # Add main name if not NA
         if (!is.na(name)) {
-          pattern_parts <- c(pattern_parts, paste0("\\b", tolower(name), "\\b"))
+          pattern_parts <- c(pattern_parts, paste0("\\b", normalize_unicode(tolower(name)), "\\b"))
         }
         
         # Add alternative 1 if not NA
         if (!is.na(name_alt1)) {
-          pattern_parts <- c(pattern_parts, paste0("\\b", tolower(name_alt1), "\\b"))
+          pattern_parts <- c(pattern_parts, paste0("\\b", normalize_unicode(tolower(name_alt1)), "\\b"))
         }
         
         # Add alternative 2 if not NA
         if (!is.na(name_alt2)) {
-          pattern_parts <- c(pattern_parts, paste0("\\b", tolower(name_alt2), "\\b"))
+          pattern_parts <- c(pattern_parts, paste0("\\b", normalize_unicode(tolower(name_alt2)), "\\b"))
         }
         
         # Join with OR operator, return NA if no valid parts
@@ -218,7 +227,7 @@ find_entity_mentions <- function(articles, searchlist) {
   for (i in seq_len(nrow(articles))) {
     pb$tick()
     
-    body_lower <- tolower(articles$body[i])
+    body_lower <- normalize_unicode(tolower(articles$body[i]))
     matches <- searchlist_patterns$uniqid[
       str_detect(body_lower, regex(searchlist_patterns$pattern))
     ]

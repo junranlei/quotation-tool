@@ -127,6 +127,21 @@ prepare_searchlist <- function(searchlist) {
 # STEP 4: ENTITY IDENTIFICATION IN QUOTES
 # ==============================================================================
 
+#' Check if a short string is an abbreviation (initials) of a longer name
+#' e.g. "NFF" is abbreviation of "National Farmers Federation"
+#' @param abbrev Short string to test
+#' @param full_name Full name to test against
+#' @return TRUE if abbrev matches initials of full_name words
+is_abbreviation_of <- function(abbrev, full_name) {
+  if (is.na(abbrev) || is.na(full_name) || nchar(abbrev) < 2) return(FALSE)
+  # Split on any non-alphanumeric character (POSIX class - works in R's TRE engine)
+  words <- unlist(strsplit(full_name, "[^[:alnum:]]+"))
+  words <- words[nchar(words) > 1]
+  if (length(words) < 2) return(FALSE)
+  initials <- toupper(paste(substr(words, 1, 1), collapse = ""))
+  toupper(abbrev) == initials
+}
+
 #' Extract organization and person entities from quote metadata
 #' @param entity_string String containing entity information
 #' @param text_name Article identifier
@@ -203,24 +218,34 @@ process_quote_entities <- function(quotes, articles_subset, searchlist) {
   existing_match_cols <- intersect(match_cols, names(articles_subset))
   
   # Join with article information
-  matched_data <- org_person_pairs %>%
-    left_join(articles_subset, by = c("text_name" = "an"), relationship = "many-to-many") %>%
-    rowwise() %>%
-    mutate(
-      matched_name = {
-        # Check each existing column for matches
-        result <- NA_character_
-        for (col in existing_match_cols) {
-          col_value <- get(col)
-          if (!is.na(col_value) && ORG == col_value) {
-            result <- get("name")  # Always return the primary name
-            break
-          }
+  joined_data <- org_person_pairs %>%
+    left_join(articles_subset, by = c("text_name" = "an"), relationship = "many-to-many")
+
+  # Match each row using a plain loop (avoids get() scoping issues in rowwise)
+  matched_name_vec <- character(nrow(joined_data))
+  for (i in seq_len(nrow(joined_data))) {
+    org_val  <- joined_data$ORG[i]
+    name_val <- joined_data$name[i]
+    result   <- NA_character_
+    for (col in existing_match_cols) {
+      col_value <- joined_data[[col]][i]
+      if (!is.na(col_value) && col_value != "na" && nchar(col_value) >= 2) {
+        org_matches <- (
+          org_val == col_value ||
+          grepl(col_value, org_val, fixed = TRUE) ||
+          grepl(org_val, col_value, fixed = TRUE) ||
+          is_abbreviation_of(org_val, col_value)
+        )
+        if (isTRUE(org_matches)) {
+          result <- name_val  # Always return the primary name
+          break
         }
-        result
       }
-    ) %>%
-    ungroup()
+    }
+    matched_name_vec[i] <- ifelse(is.null(result), NA_character_, result)
+  }
+  matched_data <- joined_data %>%
+    mutate(matched_name = matched_name_vec)
   
   # Create final dataset with matched entities
   final_dataset <- matched_data %>%
@@ -244,8 +269,9 @@ process_quote_entities <- function(quotes, articles_subset, searchlist) {
 #' Check quote relevance and assign entity IDs
 #' @param entity_dataset Processed entity dataset
 #' @param quotes Original quotes dataset
+#' @param articles_subset Article-entity rows (for fallback speaker matching)
 #' @return Updated quotes with relevance flags and entity IDs
-identify_relevant_quotes <- function(entity_dataset, quotes) {
+identify_relevant_quotes <- function(entity_dataset, quotes, articles_subset = NULL) {
   
   cat("Identifying relevant quotes...\n")
   
@@ -299,6 +325,35 @@ identify_relevant_quotes <- function(entity_dataset, quotes) {
         }
       }
     }
+    
+    # Fallback: if still not matched, check entity name variants directly in
+    # speaker / speaker_coref text. Catches cases where the entity was not
+    # captured in speaker_entities ORG field by ATAP.
+    if (quotes_updated$relevant_quote[i] == "NO" && !is.null(articles_subset)) {
+      art_entities <- articles_subset[tolower(articles_subset$an) == text_name, ]
+      if (nrow(art_entities) > 0) {
+        name_fallback_cols <- intersect(
+          c("name", "name_alt1", "name_alt2", "name_alt3", "name_alt4", "abbreviation"),
+          names(art_entities)
+        )
+        found <- FALSE
+        for (j in seq_len(nrow(art_entities))) {
+          for (ncol in name_fallback_cols) {
+            ename <- art_entities[[ncol]][j]
+            if (!is.na(ename) && ename != "na" && nchar(ename) >= 3) {
+              if (grepl(ename, speaker, ignore.case = TRUE) ||
+                  grepl(ename, speaker_coref, ignore.case = TRUE)) {
+                quotes_updated$relevant_quote[i] <- "YES"
+                quotes_updated$uniqid[i] <- art_entities$uniqid[j]
+                found <- TRUE
+                break
+              }
+            }
+          }
+          if (found) break
+        }
+      }
+    }
   }
   
   relevant_count <- sum(quotes_updated$relevant_quote == "YES")
@@ -342,20 +397,23 @@ extract_paragraph_context <- function(text_name, quote, articles_lookup) {
 #' Create final statements dataset
 #' @param relevant_quotes Filtered relevant quotes
 #' @param articles_subset Article subset for context lookup
-#' @return Final statements dataset
+#' @return Final statements dataset with columns: an, name, uniqid, paragraph_context
 create_statements_dataset <- function(relevant_quotes, articles_subset) {
   
   cat("Creating statements dataset...\n")
   
+  # Accept either 'body' or 'text' as the article content column
+  body_col <- if ("body" %in% names(articles_subset)) "body" else "text"
+  
   # Validate required columns
   validate_columns(relevant_quotes, c("text_name", "quote", "uniqid"), "relevant_quotes")
-  validate_columns(articles_subset, c("an", "body"), "articles_subset")
+  validate_columns(articles_subset, c("an", body_col), "articles_subset")
   
   # Prepare articles for paragraph extraction
   articles_paragraphs <- articles_subset %>%
     mutate(
       an = tolower(an),
-      paragraphs = str_split(body, "\n\n")
+      paragraphs = str_split(.data[[body_col]], "\n\n")
     ) %>%
     unnest(paragraphs)
   
@@ -386,14 +444,22 @@ create_statements_dataset <- function(relevant_quotes, articles_subset) {
     unnest(paragraph_context) %>%
     distinct(paragraph_context, text_name, uniqid, .keep_all = TRUE)
   
-  # Create final statements
+  # Build an -> name lookup from articles_subset (has name from searchlist join)
+  an_name_map <- articles_subset %>%
+    dplyr::mutate(an_lower = tolower(an)) %>%
+    dplyr::select(an, an_lower, uniqid, dplyr::any_of("name")) %>%
+    dplyr::distinct(an_lower, uniqid, .keep_all = TRUE)
+  
+  # Create final statements; text_name in quotes IS the 'an' value
   statements <- quotes_with_context %>%
     group_by(text_name, uniqid) %>%
     summarize(
       paragraph_context = str_c(paragraph_context, collapse = " // "),
       .groups = "drop"
     ) %>%
-    distinct()
+    dplyr::left_join(an_name_map, by = c("text_name" = "an_lower", "uniqid" = "uniqid")) %>%
+    dplyr::select(an, dplyr::any_of("name"), uniqid, paragraph_context) %>%
+    dplyr::distinct()
   
   cat("Created", nrow(statements), "final statements\n")
   return(statements)
@@ -435,23 +501,6 @@ create_statements_from_atap <- function(articles_clean, searchlist) {
     stop("Column 'an' (article name/id) not found in articles dataset")
   }
   
-  # Debug: Check for matching issues
-  cat("Debug info:\n")
-  cat("  Columns in articles_clean:", paste(names(articles_clean), collapse=", "), "\n")
-  cat("  Columns in quotes:", paste(names(quotes), collapse=", "), "\n")
-  cat("  First text_name from quotes:", quotes$text_name[1], "\n")
-  cat("  First 5 'an' from articles_clean:", head(articles_clean$an, 5), "\n")
-  
-  # Check if there's a title or body column that might match
-  if ("title" %in% names(articles_clean)) {
-    cat("  First 5 'title' from articles_clean:", head(articles_clean$title, 5), "\n")
-  }
-  if ("body" %in% names(articles_clean)) {
-    cat("  First body preview:", substr(articles_clean$body[1], 1, 100), "...\n")
-  }
-  
-  cat("  Total articles in articles_clean:", nrow(articles_clean), "\n")
-  
   # Match ATAP quotes to articles by ID:
   # quotes$text_name contains the article ID (same as articles_clean$an)
   articles_clean$an <- as.character(articles_clean$an)
@@ -459,8 +508,6 @@ create_statements_from_atap <- function(articles_clean, searchlist) {
 
   articles_subset <- articles_clean %>%
     dplyr::filter(an %in% quotes$text_name)
-
-cat("  nrow(articles_subset) =", nrow(articles_subset), "\n")
   
   # Check if mentioned_entities column exists
   if ("mentioned_entities" %in% names(articles_subset)) {
@@ -498,8 +545,8 @@ cat("  nrow(articles_subset) =", nrow(articles_subset), "\n")
   # Step 4: Process entities
   entity_dataset <- process_quote_entities(quotes, articles_subset, searchlist_processed)
   
-  # Step 5: Identify relevant quotes
-  updated_quotes <- identify_relevant_quotes(entity_dataset, quotes)
+  # Step 5: Identify relevant quotes (pass articles_subset for fallback matching)
+  updated_quotes <- identify_relevant_quotes(entity_dataset, quotes, articles_subset)
   relevant_quotes <- updated_quotes %>% dplyr::filter(relevant_quote == "YES")
   
   # Step 6: Context preservation and create statements
