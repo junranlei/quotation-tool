@@ -62,29 +62,56 @@ quotation-tool/
 
 ## Prerequisites
 
-### Python Environment
-The notebook requires Python packages listed in `requirements.txt`:
-```bash
-pip install -r requirements.txt
-```
-
 ### R Environment
-Required R packages will be installed automatically via the notebook, or manually:
-```R
-install.packages(c("readxl", "openxlsx", "tidyr", "dplyr", 
-                   "stringdist", "lubridate", "readr", "stringr", "progress"),
-                 repos="https://cloud.r-project.org")
-```
+Requires R to be installed on your system. R packages are installed as part of the First-Time Setup below.
 
 ### R-Python Integration
 The workflow uses `rpy2` to execute R scripts from Python, enabling seamless integration of preprocessing and analysis stages
 
 ## Running the Notebook
 
-1. Clone the repository
-2. Install Python dependencies: `pip install -r requirements.txt`
-3. Install R and required packages (see Prerequisites above)
-4. Open `quote_extractor_notebook_forcsvfiles.ipynb` in Jupyter
+### First-Time Setup
+
+```bash
+cd quotation-tool
+python3 -m venv venv
+source venv/bin/activate
+```
+
+> **Note:** The next two commands will download around 600MB and will take a while.
+
+```bash
+python3 -m pip install -r requirements.txt
+python3 -m coreferee install en
+```
+
+Install required R packages (run once from within R or RScript):
+
+```R
+install.packages(c("readxl", "openxlsx", "tidyr", "dplyr", "stringdist", "lubridate", "readr", "stringr", "progress"),repos="https://cloud.r-project.org")
+```
+
+Register the virtual environment as a Jupyter kernel (only required once):
+
+```bash
+python3 -m ipykernel install --user --name quotation_tool
+```
+
+Launch the notebook:
+
+```bash
+jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+```
+
+### Subsequent Use
+
+```bash
+cd ~/quotation-tool
+source venv/bin/activate
+jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+```
+
+> **Note:** `ipykernel install` does not need to be re-run — the kernel registration persists across sessions. Simply activate the virtual environment and launch Jupyter.
 
 
 ## Workflow Execution
