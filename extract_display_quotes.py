@@ -21,6 +21,7 @@ import re
 import sys
 import codecs
 import logging
+import shutil
 import traceback
 import warnings
 from collections import Counter
@@ -274,7 +275,17 @@ class QuotationTool():
             
         # read the file based on the file format
         try:
-            temp_df = pd.read_csv(file)
+            # utf-8-sig strips a leading UTF-8 BOM if present (common on Windows/Excel output)
+            temp_df = pd.read_csv(file, encoding='utf-8-sig')
+        except UnicodeDecodeError:
+            try:
+                temp_df = pd.read_csv(file, encoding='latin1')
+            except Exception:
+                try:
+                    temp_df = pd.read_excel(file)
+                except Exception as e:
+                    print(f'Error reading file {file}: {str(e)}')
+                    return []
         except Exception:
             try:
                 temp_df = pd.read_excel(file)
@@ -392,8 +403,8 @@ class QuotationTool():
                 text_dic = self.load_table(file, n)
             all_data.extend(text_dic)
         
-        # remove files and directory once finished
-        os.system('rm -r ./input')
+        # remove files and directory once finished (cross-platform)
+        shutil.rmtree('./input', ignore_errors=True)
         
         # convert them into a pandas dataframe format and add unique id
         self.text_df = pd.DataFrame.from_dict(all_data)

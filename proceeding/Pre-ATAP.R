@@ -14,17 +14,39 @@ library(readxl)
 library(stringdist)
 library(progress)
 library(lubridate)
+library(readr)
 
 # Global constants ----
 CHUNK_SIZE <- 10000  # Rows per processing chunk
 MIN_ARTICLE_LENGTH <- 200  # Minimum article length in characters
 
-# Load datasets
+# ==============================================================================
+# ENCODING HELPER
+# ==============================================================================
+
+#' Repair column names damaged by a UTF-8 BOM (common on Windows/Excel outputs)
+#' Replaces leading \u00ef\u00bb\u00bf or \u00ef.. sequences with empty string.
+#' @param df Data frame whose column names should be cleaned
+#' @return Data frame with repaired column names
+fix_bom_colnames <- function(df) {
+  names(df) <- sub("^\\xef\\xbb\\xbf", "", names(df))  # UTF-8 BOM bytes in latin1 view
+  names(df) <- sub("^\\\u00ef\\\u00bb\\\u00bf", "", names(df))  # Unicode escape form
+  names(df) <- sub("^\u00ef..", "an", names(df))  # common garbled form: ï..an
+  names(df) <- sub("^\u00ef\u00bb\u00bfan$", "an", names(df))
+  names(df) <- trimws(names(df))
+  df
+}
+
+# Load datasets using readr for clean UTF-8 input (handles BOM automatically)
 articles_path   <- "proceeding/Articles.csv"       # raw articles
 searchlist_path <- "proceeding/Masterlist.csv"     # entity searchlist
 
-articles   <- read.csv(articles_path, stringsAsFactors = FALSE)
-searchlist <- read.csv(searchlist_path, stringsAsFactors = FALSE)
+articles   <- readr::read_csv(articles_path, show_col_types = FALSE)
+searchlist <- readr::read_csv(searchlist_path, show_col_types = FALSE)
+
+# Repair any BOM-damaged column names that survived the read
+articles   <- fix_bom_colnames(articles)
+searchlist <- fix_bom_colnames(searchlist)
 # ==============================================================================
 # UTILITY FUNCTIONS
 # ==============================================================================
@@ -315,14 +337,9 @@ pre <- prepare_atap_input(
 input_clean_path   <- "proceeding/articles_clean.csv"
 input_atap_path    <- "proceeding/articles_with_mentions.csv"
 
-# Save files
-write.csv(pre$articles_clean,
-          file = input_clean_path,
-          row.names = FALSE)
-
-write.csv(pre$articles_with_mentions,
-          file = input_atap_path,
-          row.names = FALSE)
+# Save files using readr::write_csv for clean UTF-8 output (no BOM, cross-platform)
+readr::write_csv(pre$articles_clean, file = input_clean_path)
+readr::write_csv(pre$articles_with_mentions, file = input_atap_path)
 
 cat("Outputs saved to /input:\n")
 cat(" -", input_clean_path, "\n")

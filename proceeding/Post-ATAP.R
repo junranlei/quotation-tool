@@ -14,6 +14,7 @@ library(readxl)
 library(stringdist)
 library(progress)
 library(lubridate)
+library(readr)
 
 # ==============================================================================
 # STEP 3: QUOTE EXTRACTION AND PROCESSING
@@ -563,18 +564,19 @@ create_statements_from_atap <- function(articles_clean, searchlist) {
 # FULL WORKFLOW
 # ==============================================================================
 
-# Load required data
-searchlist_path <- "proceeding/Masterlist.csv"
-searchlist <- read.csv(searchlist_path, stringsAsFactors = FALSE)
+# Load required data from files (makes this script self-contained and re-runnable
+# without depending on the in-memory `pre` object from Pre-ATAP.R)
+searchlist_path          <- "proceeding/Masterlist.csv"
+articles_with_mentions_path <- "proceeding/articles_with_mentions.csv"
 
-#FILE_PATH_ATAP <- "/output" # Path to folder where ATAP quote extractions will be saved
-#quotes_path     <- "output/quotes.xlsx"     # ATAP quotes (Excel)
-#quotes     <- readxl::read_excel(quotes_path)
+# Use readr for clean UTF-8 input (handles BOM produced by Excel/Windows)
+searchlist          <- readr::read_csv(searchlist_path, show_col_types = FALSE)
+articles_with_mentions <- readr::read_csv(articles_with_mentions_path, show_col_types = FALSE)
 
 # 4. Once quotes are available, run post-ATAP
 # Use articles_with_mentions which contains the mentioned_entities column
 final_statements <- create_statements_from_atap(
-  articles_clean = pre$articles_with_mentions,
+  articles_clean = articles_with_mentions,
   searchlist     = searchlist
 )
 
@@ -585,9 +587,8 @@ final_statements <- create_statements_from_atap(
 # Define output paths
 output_statement_path    <- "output/final_statements.csv"
 
-write.csv(final_statements,
-          file = output_statement_path,
-          row.names = FALSE)
+# Use readr::write_csv for clean UTF-8 output (no BOM, cross-platform safe)
+readr::write_csv(final_statements, file = output_statement_path)
 
 cat("Statements saved to /output:\n")
 cat(" -", output_statement_path, "\n")
