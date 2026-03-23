@@ -269,8 +269,6 @@ jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 
 WSL2 automatically forwards localhost ports — the Jupyter URL opens directly in your Windows browser. Keep project files under the WSL home directory (`~/`) rather than `/mnt/c/` for best I/O performance.
 
-See [CHANGES.md](CHANGES.md) for a full WSL2 assessment.
-
 ---
 
 ### Subsequent Use — macOS / Linux
