@@ -119,11 +119,16 @@ pyenv exec python --version  # should print Python 3.11.x
 # Install pyenv-win
 winget install pyenv-win.pyenv-win
 # or: pip install pyenv-win
+# NOTE: if you use pip install, pyenv will NOT be added to your PATH automatically.
+# You must add the following two paths to your user PATH manually (Settings → Environment Variables):
+#   %USERPROFILE%\.pyenv\pyenv-win\bin
+#   %USERPROFILE%\.pyenv\pyenv-win\shims
+# Using winget avoids this step.
 
 # Find the latest 3.11.x patch and install it:
 # First update pyenv-win so its version list is current:
 pyenv update
-pyenv install --list | Select-String "  3\.11\."   # pick the highest shown
+pyenv install --list | Select-String "3\.11\."   # pick the highest shown
 pyenv install 3.11.x        # replace with the version you found above
 cd C:\path\to\quotation-tool
 pyenv local 3.11.x            # writes/confirms .python-version (no patch needed)
@@ -212,6 +217,12 @@ Register the virtual environment as a Jupyter kernel (only required once):
 ```powershell
 py -3.11 -m ipykernel install --user --name quotation_tool
 ```
+
+> **Note (Windows):** If `jupyter lab` launches but cannot write its runtime files (blank page or immediate crash), set the runtime directory before launching:
+> ```powershell
+> $env:JUPYTER_RUNTIME_DIR="$PWD\.jupyter_runtime"
+> py -3.11 -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+> ```
 
 Launch the notebook. The R initialisation cell in the notebook will automatically locate your R installation on Windows — no manual environment variable setup is required for standard R installs (those made via the official R installer). If R cannot be found you will see a clear error message with instructions.
 
@@ -398,6 +409,15 @@ As a guideline:
   jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
   ```
   (Note: `/usr/lib` is SIP-protected on macOS — do not attempt to create a symlink there.)
+
+**Wrong kernel — `ModuleNotFoundError: No module named 'coreferee'` (or other packages)**
+- The notebook is running on the system Python instead of the `quotation_tool` virtual environment.
+- Check the kernel name shown in the top-right corner of Jupyter. If it is not `quotation_tool`, go to **Kernel → Change Kernel → quotation_tool**, then restart the kernel.
+- If `quotation_tool` does not appear in the list, re-run the `ipykernel install` command from setup and reload the Jupyter page.
+
+**`NameError: name 'r' is not defined` in the Post-ATAP cell**
+- This happens after a kernel restart or kernel switch. Restarting the kernel clears all variables, including the `r` object imported from `rpy2`.
+- After any kernel restart or change, re-run **all cells from the beginning**: the Windows R initialisation cell first, then the rpy2 import cell (`from rpy2.robjects import r`), and all subsequent cells in order before reaching the Post-ATAP cell.
 
 **Windows: `rpy2` fails to import or cannot find R**
 - Run the notebook's Windows R initialisation cell (the first code cell) before any other cell. It detects your R installation automatically.
