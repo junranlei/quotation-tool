@@ -390,18 +390,28 @@ For users comfortable with Linux command-line tools, WSL2 (Windows Subsystem for
 # Install C build tools and R development headers (needed to compile rpy2)
 sudo apt update
 sudo apt install build-essential r-base r-base-dev software-properties-common
+```
 
-# Install Python 3.11 via pyenv (recommended — no PPA needed)
+**Then install Python 3.11 — choose one:**
+
+*Option A — pyenv:*
+```bash
 curl https://pyenv.run | bash
-# Add pyenv to your shell init file as shown in the Supported Python version section above, then:
+# Add pyenv to your shell as shown in the Supported Python version section above, then:
 source ~/.bashrc
-# Update pyenv so it knows about the latest releases, then install:
-brew upgrade pyenv 2>/dev/null || (cd ~/.pyenv && git pull)
+# Update pyenv so it knows about the latest releases:
+cd ~/.pyenv && git pull
 pyenv install --list | grep -E "^\s+3\.11\."   # pick the highest shown
 pyenv install 3.11.x   # replace with the version you found above
 ```
 
-> **Alternative:** Install via the deadsnakes PPA instead of pyenv:
+*Option B — uv:*
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Close and reopen your terminal, then continue with the First-Time Setup below.
+```
+
+> **Alternative (Option A only):** Install via the deadsnakes PPA instead of pyenv:
 > ```bash
 > sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt update
 > sudo apt install python3.11 python3.11-venv python3.11-dev
@@ -409,20 +419,23 @@ pyenv install 3.11.x   # replace with the version you found above
 
 > **Why compilation?** `rpy2-rinterface` (the C extension that links against R) has no pre-built Linux wheels on PyPI. pip compiles it from source, which takes ~5 minutes. Without `build-essential` and `r-base-dev` the install fails with a C compilation error.
 
-Once the above is installed, the setup commands are the same as macOS/Linux (`.python-version` selects 3.11 automatically via pyenv):
+Once the above is installed, follow the **macOS / Linux First-Time Setup** (Option A or Option B) from the section above — the commands are identical under WSL2:
 
 ```bash
 cd ~/projects/quotation-tool
+# Option A (pyenv):
 pyenv exec python -m venv venv
+# Option B (uv):
+# uv python install 3.11 && uv venv --python 3.11 venv
 source venv/bin/activate
-python -m pip install -r requirements.txt
-python -m coreferee install en
+python -m pip install -r requirements.txt     # or: uv pip install -r requirements.txt
+python -m coreferee install en               # downloads the English language model (not a pip install)
 ```
 
 Install R packages as shown in the macOS/Linux section above, then register the kernel and launch:
 
 ```bash
-python3.11 -m ipykernel install --user --name quotation_tool
+python -m ipykernel install --user --name quotation_tool
 jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 ```
 
