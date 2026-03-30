@@ -116,6 +116,8 @@ pyenv exec python --version  # should print Python 3.11.x
 #### Option A — pyenv-win (recommended for Windows, reads `.python-version` automatically)
 
 ```powershell
+# Update winget's source index first (prevents "No package found" errors):
+winget source update
 # Install pyenv-win
 winget install pyenv-win.pyenv-win
 # or: pip install pyenv-win
@@ -125,11 +127,17 @@ winget install pyenv-win.pyenv-win
 #   %USERPROFILE%\.pyenv\pyenv-win\shims
 # Using winget avoids this step.
 
-# Find the latest 3.11.x patch and install it:
+# Find the latest STABLE 3.11.x patch and install it:
 # First update pyenv-win so its version list is current:
 pyenv update
-pyenv install --list | Select-String "3\.11\."   # pick the highest shown
-pyenv install 3.11.x        # replace with the version you found above
+# NOTE: 'pyenv update' may print a VBScript error ("htmlfile: This command is not supported")
+# on some Windows configurations — this is a known pyenv-win bug and can be safely ignored.
+
+# Filter for stable releases only (no alpha/beta/rc suffixes):
+pyenv install --list | Select-String "^\s+3\.11\.\d+\s*$"
+# Pick the HIGHEST stable version shown (e.g. 3.11.9, not 3.11.0b4 or 3.11.0a1).
+# Pre-release versions (containing 'a', 'b', or 'rc') are NOT stable — do not use them.
+pyenv install 3.11.x        # replace with the stable version you found above
 cd C:\path\to\quotation-tool
 pyenv local 3.11.x            # writes/confirms .python-version (no patch needed)
 # Use 'pyenv global 3.11.x' only if you want 3.11.x as your system-wide default
@@ -186,10 +194,19 @@ jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 
 ### First-Time Setup — Windows
 
-Use `py -3.11` (the Python Launcher) instead of `python3`. Open **PowerShell** and run:
+> **Important:** Run all commands from the **project root directory** (`C:\path\to\quotation-tool`), not from a subdirectory such as `output\`. All paths in the instructions are relative to the project root.
+
+Open **PowerShell** and run:
 
 ```powershell
 cd C:\path\to\quotation-tool
+```
+
+> If you see an execution policy error at any point, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` first.
+
+Create and activate the virtual environment:
+
+```powershell
 # If using pyenv-win (reads .python-version automatically):
 pyenv exec python -m venv .venv
 # Without pyenv-win:
@@ -197,13 +214,13 @@ pyenv exec python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-> If you see an error about execution policy, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` first.
+> **Important:** After activating the venv (the `(.venv)` prefix appears in your prompt), use `python` — **not** `py -3.11` — for all remaining commands. Using `py -3.11` bypasses the active venv and installs packages into the system Python instead, which will cause `ModuleNotFoundError` errors later.
 
 > **Note:** The next two commands will download around 600MB and will take a while.
 
 ```powershell
-py -3.11 -m pip install -r requirements.txt
-py -3.11 -m coreferee install en
+python -m pip install -r requirements.txt
+python -m coreferee install en
 ```
 
 Install required R packages (run once from within R or RScript):
@@ -215,19 +232,19 @@ install.packages(c("readxl", "openxlsx", "tidyr", "dplyr", "stringdist", "lubrid
 Register the virtual environment as a Jupyter kernel (only required once):
 
 ```powershell
-py -3.11 -m ipykernel install --user --name quotation_tool
+python -m ipykernel install --user --name quotation_tool
 ```
 
 > **Note (Windows):** If `jupyter lab` launches but cannot write its runtime files (blank page or immediate crash), set the runtime directory before launching:
 > ```powershell
 > $env:JUPYTER_RUNTIME_DIR="$PWD\.jupyter_runtime"
-> py -3.11 -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+> python -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 > ```
 
 Launch the notebook. The R initialisation cell in the notebook will automatically locate your R installation on Windows — no manual environment variable setup is required for standard R installs (those made via the official R installer). If R cannot be found you will see a clear error message with instructions.
 
 ```powershell
-py -3.11 -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+python -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 ```
 
 ---
@@ -295,7 +312,7 @@ jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 ```powershell
 cd C:\path\to\quotation-tool
 .\.venv\Scripts\Activate.ps1
-py -3.11 -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+python -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 ```
 
 > **Note:** `ipykernel install` does not need to be re-run — the kernel registration persists across sessions. Simply activate the virtual environment and launch Jupyter.
@@ -410,10 +427,20 @@ As a guideline:
   ```
   (Note: `/usr/lib` is SIP-protected on macOS — do not attempt to create a symlink there.)
 
+**Windows: `'sh' is not recognized as an internal or external command`**
+- This message appears in the PowerShell window after JupyterLab starts. It comes from `jupyter_lsp`, which checks for language server tools by trying to run `sh` (a Unix shell). `sh` does not exist on Windows.
+- This is a cosmetic warning only — it does not affect the notebook's functionality. It can be safely ignored.
+
+**Windows: packages installed into system Python instead of the virtual environment**
+- If `pip install` output shows `Requirement already satisfied in C:\Users\...\Python311\Lib\site-packages` (the system path, not `.venv`), the venv was bypassed.
+- **Cause:** Using `py -3.11 -m pip` after activating the venv. The `py` launcher ignores the active venv and always targets the system Python.
+- **Fix:** After running `.\.venv\Scripts\Activate.ps1`, use `python -m pip` (not `py -3.11 -m pip`) for all commands. Check that your prompt shows `(.venv)` before running install commands.
+- If packages are already in the wrong place, deactivate the venv, delete the `.venv` folder, re-create it, activate it, and re-run `python -m pip install -r requirements.txt`.
+
 **Wrong kernel — `ModuleNotFoundError: No module named 'coreferee'` (or other packages)**
 - The notebook is running on the system Python instead of the `quotation_tool` virtual environment.
 - Check the kernel name shown in the top-right corner of Jupyter. If it is not `quotation_tool`, go to **Kernel → Change Kernel → quotation_tool**, then restart the kernel.
-- If `quotation_tool` does not appear in the list, re-run the `ipykernel install` command from setup and reload the Jupyter page.
+- If `quotation_tool` does not appear in the list, re-run `python -m ipykernel install --user --name quotation_tool` from inside the activated venv and reload the Jupyter page.
 
 **`NameError: name 'r' is not defined` in the Post-ATAP cell**
 - This happens after a kernel restart or kernel switch. Restarting the kernel clears all variables, including the `r` object imported from `rpy2`.
@@ -424,7 +451,7 @@ As a guideline:
 - If R is still not found, set `R_HOME` in PowerShell before launching Jupyter:
   ```powershell
   $env:R_HOME = "C:\Users\<you>\AppData\Local\Programs\R\R-4.x.x"
-  py -3.11 -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+  python -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
   ```
 - Make sure you are using **Python 3.11**. The stack does not work with Python 3.12+.
 
