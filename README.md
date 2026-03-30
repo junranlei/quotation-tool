@@ -84,9 +84,11 @@ The workflow uses `rpy2` to execute R scripts from Python, enabling seamless int
 
 ### Supported Python version
 
-**Python 3.11 is required.** The repository includes a `.python-version` file that `pyenv` reads automatically.
+**Python 3.11 is required.**
 
-#### Option A — pyenv (recommended, works on macOS / Linux / WSL2, reads `.python-version` automatically)
+#### macOS / Linux — choose one option below
+
+**Option A — pyenv (reads `.python-version` automatically)**
 
 ```bash
 # Install pyenv
@@ -99,77 +101,112 @@ echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
 echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 source ~/.bashrc
 
-# Install Python 3.11 and pin it for this project
-# First, update pyenv so its version list is current, then find the latest 3.11.x:
+# Update pyenv so its version list is current, then find the latest 3.11.x:
 brew upgrade pyenv                                        # macOS
 # pyenv update                                           # Linux/WSL2 (if pyenv-update plugin installed)
 # cd ~/.pyenv && git pull                                # Linux/WSL2 fallback
 pyenv install --list | grep -E "^\s+3\.11\."   # pick the highest number shown
 pyenv install 3.11.x        # replace with the version you found above
 cd quotation-tool
-pyenv local 3.11.x             # writes/confirms the .python-version file (no patch needed)
-# From now on, pyenv selects 3.11 automatically whenever you cd into this folder
-pyenv version                # confirms: 3.11.x (set by .python-version)
-pyenv exec python --version  # should print Python 3.11.x
+pyenv local 3.11.x             # writes/confirms the .python-version file
+pyenv exec python --version    # should print Python 3.11.x
 ```
 
-#### Option A — pyenv-win (recommended for Windows, reads `.python-version` automatically)
+**Option B — uv (fast, modern — also handles Python install)**
 
-```powershell
-# Update winget's source index first (prevents "No package found" errors):
-winget source update
-# Install pyenv-win
-winget install pyenv-win.pyenv-win
-# or: pip install pyenv-win
-# NOTE: if you use pip install, pyenv will NOT be added to your PATH automatically.
-# You must add the following two paths to your user PATH manually (Settings → Environment Variables):
-#   %USERPROFILE%\.pyenv\pyenv-win\bin
-#   %USERPROFILE%\.pyenv\pyenv-win\shims
-# Using winget avoids this step.
-
-# Find the latest STABLE 3.11.x patch and install it:
-# First update pyenv-win so its version list is current:
-pyenv update
-# NOTE: 'pyenv update' may print a VBScript error ("htmlfile: This command is not supported")
-# on some Windows configurations — this is a known pyenv-win bug and can be safely ignored.
-
-# Filter for stable releases only (no alpha/beta/rc suffixes):
-pyenv install --list | Select-String "^\s+3\.11\.\d+\s*$"
-# Pick the HIGHEST stable version shown (e.g. 3.11.9, not 3.11.0b4 or 3.11.0a1).
-# Pre-release versions (containing 'a', 'b', or 'rc') are NOT stable — do not use them.
-pyenv install 3.11.x        # replace with the stable version you found above
-cd C:\path\to\quotation-tool
-pyenv local 3.11.x            # writes/confirms .python-version (no patch needed)
-# Use 'pyenv global 3.11.x' only if you want 3.11.x as your system-wide default
-pyenv exec python --version  # should print Python 3.11.x
-```
-
-#### Option B — system / installer Python (no pyenv)
+[uv](https://docs.astral.sh/uv/) installs Python, creates virtual environments, and installs packages in one tool. Install it:
 
 ```bash
-python3 --version   # must show Python 3.11.x
+curl -LsSf https://astral.sh/uv/install.sh | sh   # macOS / Linux
+# or on macOS with Homebrew:
+# brew install uv
 ```
 
-On Windows use `py -0` to list installed versions and `py -3.11` instead of `python3`.
+Close and reopen your terminal. uv will install Python 3.11 automatically during the First-Time Setup below — no separate Python download needed.
+
+#### Windows — choose one option below
+
+**Option 1 — Direct Python installer (recommended, simplest)**
+
+Download and run the **Python 3.11.x** installer from [python.org/downloads](https://www.python.org/downloads/release/python-3119/). During installation, tick **"Add Python to PATH"**.
+
+Verify in PowerShell:
+```powershell
+py -0                # lists all installed Python versions
+py -3.11 --version   # should print Python 3.11.x
+```
+
+You can install multiple Python versions (3.9, 3.11, 3.12, etc.) side-by-side and select with `py -3.9`, `py -3.11`, etc. — no pyenv needed.
+
+**Option 2 — uv (fast, modern — also handles Python install)**
+
+[uv](https://docs.astral.sh/uv/) installs Python, creates virtual environments, and installs packages in one tool. Install it in PowerShell:
+
+```powershell
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Close and reopen PowerShell. uv will install Python 3.11 automatically during the First-Time Setup below — no separate Python download needed.
+
+**Option 3 — pyenv-win (only if you need per-directory Python version switching)**
+
+pyenv-win reads the `.python-version` file and switches Python automatically per project. Use this only if you regularly switch Python versions across projects.
+
+Install using the official PowerShell script — run these **two commands separately**:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/pyenv-win/pyenv-win/master/pyenv-win/install-pyenv-win.ps1" -OutFile "./install-pyenv-win.ps1"
+& "./install-pyenv-win.ps1"
+```
+
+> If you get an `UnauthorizedAccess` error, run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` first.
+
+> **Note:** `winget install pyenv-win.pyenv-win` is **not officially supported** and frequently fails. Use the script above.
+
+If the PS1 script fails, use git clone:
+
+```powershell
+git clone https://github.com/pyenv-win/pyenv-win.git "$HOME\.pyenv"
+[System.Environment]::SetEnvironmentVariable('PYENV',      "$HOME\.pyenv\pyenv-win\", 'User')
+[System.Environment]::SetEnvironmentVariable('PYENV_ROOT', "$HOME\.pyenv\pyenv-win\", 'User')
+[System.Environment]::SetEnvironmentVariable('PYENV_HOME', "$HOME\.pyenv\pyenv-win\", 'User')
+[System.Environment]::SetEnvironmentVariable('Path', "$HOME\.pyenv\pyenv-win\bin;$HOME\.pyenv\pyenv-win\shims;" + [System.Environment]::GetEnvironmentVariable('Path', 'User'), 'User')
+```
+
+Close and reopen PowerShell, then install Python 3.11:
+
+```powershell
+pyenv --version   # confirm install succeeded (e.g. pyenv 3.1.1)
+
+# Filter for stable releases only — no 'a', 'b', or 'rc' in the name:
+pyenv install --list | Select-String "^\s+3\.11\.\d+\s*$"
+# If no output: your pyenv version list is stale — reinstall via git clone above.
+
+pyenv install 3.11.x         # replace with highest stable shown, e.g. 3.11.9
+pyenv local 3.11.x           # writes .python-version for this directory
+pyenv exec python --version  # should print Python 3.11.x
+```
 
 ---
 
 ### First-Time Setup — macOS / Linux
 
+#### Option A — pyenv
+
 ```bash
 cd quotation-tool
-# If using pyenv, it picks up .python-version automatically:
+# pyenv picks up .python-version automatically:
 pyenv exec python -m venv venv
 # Without pyenv (ensure python3 is 3.11 first):
 # python3 -m venv venv
 source venv/bin/activate
 ```
 
-> **Note:** The next two commands will download around 600MB and will take a while.
+> **Note:** The next two commands will download around 600 MB and will take a few minutes.
 
 ```bash
-python3 -m pip install -r requirements.txt
-python3 -m coreferee install en
+python -m pip install -r requirements.txt
+python -m coreferee install en   # downloads the English language model (not a pip install)
 ```
 
 Install required R packages (run once from within R or RScript):
@@ -181,7 +218,43 @@ install.packages(c("readxl", "openxlsx", "tidyr", "dplyr", "stringdist", "lubrid
 Register the virtual environment as a Jupyter kernel (only required once):
 
 ```bash
-python3 -m ipykernel install --user --name quotation_tool
+python -m ipykernel install --user --name quotation_tool
+```
+
+Launch the notebook:
+
+```bash
+jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+```
+
+---
+
+#### Option B — uv
+
+```bash
+cd quotation-tool
+uv python install 3.11
+uv venv --python 3.11 venv
+source venv/bin/activate
+```
+
+> **Note:** The next two commands will download around 600 MB and will take a few minutes.
+
+```bash
+uv pip install -r requirements.txt
+python -m coreferee install en   # downloads the English language model — uses python, not uv
+```
+
+Install required R packages (run once from within R or RScript):
+
+```R
+install.packages(c("readxl", "openxlsx", "tidyr", "dplyr", "stringdist", "lubridate", "readr", "stringr", "progress"), repos="https://cloud.r-project.org")
+```
+
+Register the virtual environment as a Jupyter kernel (only required once):
+
+```bash
+python -m ipykernel install --user --name quotation_tool
 ```
 
 Launch the notebook:
@@ -194,33 +267,35 @@ jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 
 ### First-Time Setup — Windows
 
-> **Important:** Run all commands from the **project root directory** (`C:\path\to\quotation-tool`), not from a subdirectory such as `output\`. All paths in the instructions are relative to the project root.
+> **Where to put the project:** Clone or extract the repository into a folder **inside your user directory**, for example:
+> - `C:\Users\<you>\Documents\quotation-tool`
+> - `C:\Users\<you>\Projects\quotation-tool`
+>
+> **Do not place it directly under `C:\`** (e.g. `C:\_repos\quotation-tool`). Root-level directories on `C:\` apply stricter Windows security policies to executables, which causes `[WinError 5] Access is denied` when launching Jupyter from a virtual environment.
 
-Open **PowerShell** and run:
-
-```powershell
-cd C:\path\to\quotation-tool
-```
+> **Run all commands from the project root**, not from a subdirectory such as `output\`.
 
 > If you see an execution policy error at any point, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` first.
 
-Create and activate the virtual environment:
+---
+
+#### Option 1 — Direct Python installer (recommended)
+
+Use this if you followed **Option 1** (python.org installer) above.
 
 ```powershell
-# If using pyenv-win (reads .python-version automatically):
-pyenv exec python -m venv .venv
-# Without pyenv-win:
-# py -3.11 -m venv .venv
+cd C:\Users\<you>\Documents\quotation-tool
+py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-> **Important:** After activating the venv (the `(.venv)` prefix appears in your prompt), use `python` — **not** `py -3.11` — for all remaining commands. Using `py -3.11` bypasses the active venv and installs packages into the system Python instead, which will cause `ModuleNotFoundError` errors later.
+After activation the prompt shows `(.venv)`. Now use `python` (not `py -3.11`) for all remaining commands — using `py -3.11` bypasses the active venv and installs into the system Python instead.
 
-> **Note:** The next two commands will download around 600MB and will take a while.
+> **Note:** The next two commands download around 600 MB and will take a few minutes.
 
 ```powershell
 python -m pip install -r requirements.txt
-python -m coreferee install en
+python -m coreferee install en   # downloads the English language model (not a pip install)
 ```
 
 Install required R packages (run once from within R or RScript):
@@ -235,17 +310,73 @@ Register the virtual environment as a Jupyter kernel (only required once):
 python -m ipykernel install --user --name quotation_tool
 ```
 
-> **Note (Windows):** If `jupyter lab` launches but cannot write its runtime files (blank page or immediate crash), set the runtime directory before launching:
-> ```powershell
-> $env:JUPYTER_RUNTIME_DIR="$PWD\.jupyter_runtime"
-> python -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
-> ```
+Launch the notebook:
 
-Launch the notebook. The R initialisation cell in the notebook will automatically locate your R installation on Windows — no manual environment variable setup is required for standard R installs (those made via the official R installer). If R cannot be found you will see a clear error message with instructions.
+```powershell
+$env:JUPYTER_RUNTIME_DIR="$PWD\.jupyter_runtime"
+python -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+```
+
+The R initialisation cell in the notebook automatically locates your R installation — no manual environment variable setup is required for standard R installs.
+
+---
+
+#### Option 2 — uv (fast, modern)
+
+Use this if you followed **Option 2** (uv) above. uv handles Python installation, venv creation, and package installation in one tool.
+
+```powershell
+cd C:\Users\<you>\Documents\quotation-tool
+uv python install 3.11
+uv venv --python 3.11 .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+> **Note:** The next two commands download around 600 MB and will take a few minutes.
+
+```powershell
+uv pip install -r requirements.txt
+python -m coreferee install en   # downloads the English language model — uses python, not uv
+```
+
+Install required R packages (run once from within R or RScript):
+
+```R
+install.packages(c("readxl", "openxlsx", "tidyr", "dplyr", "stringdist", "lubridate", "readr", "stringr", "progress"), repos="https://cloud.r-project.org")
+```
+
+Register the virtual environment as a Jupyter kernel (only required once):
+
+```powershell
+python -m ipykernel install --user --name quotation_tool
+```
+
+Launch the notebook. With uv you can use `uv run` to bypass Windows executable restrictions:
+
+```powershell
+$env:JUPYTER_RUNTIME_DIR="$PWD\.jupyter_runtime"
+uv run jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+```
+
+If `uv run` is not available, fall back to:
 
 ```powershell
 python -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 ```
+
+---
+
+#### Option 3 — pyenv-win
+
+Use this if you followed **Option 3** (pyenv-win) above.
+
+```powershell
+cd C:\Users\<you>\Documents\quotation-tool
+pyenv exec python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Then follow the same steps as **Option 1** from the `python -m pip install` step onwards.
 
 ---
 
@@ -305,14 +436,17 @@ WSL2 automatically forwards localhost ports — the Jupyter URL opens directly i
 cd ~/quotation-tool
 source venv/bin/activate
 jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+# or with uv (Option B): uv run jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 ```
 
 ### Subsequent Use — Windows
 
 ```powershell
-cd C:\path\to\quotation-tool
+cd C:\Users\<you>\Documents\quotation-tool
 .\.venv\Scripts\Activate.ps1
+$env:JUPYTER_RUNTIME_DIR="$PWD\.jupyter_runtime"
 python -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+# or with uv: uv run jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 ```
 
 > **Note:** `ipykernel install` does not need to be re-run — the kernel registration persists across sessions. Simply activate the virtual environment and launch Jupyter.
@@ -426,6 +560,26 @@ As a guideline:
   jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
   ```
   (Note: `/usr/lib` is SIP-protected on macOS — do not attempt to create a symlink there.)
+
+**Windows: `Error executing Jupyter command 'lab': [WinError 5] Access is denied`**
+- Windows is blocking execution of the `jupyter-lab.exe` script inside the virtual environment. This is most commonly caused by Windows security policy, antivirus software, or the venv being created in a restricted directory (e.g. directly under `C:\`).
+- **Fix 1 (recommended):** Run PowerShell as Administrator — right-click PowerShell and choose "Run as administrator", then re-activate the venv and launch Jupyter:
+  ```powershell
+  .\.venv\Scripts\Activate.ps1
+  $env:JUPYTER_RUNTIME_DIR="$PWD\.jupyter_runtime"
+  python -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+  ```
+- **Fix 2:** Call the Jupyter script directly, bypassing the module launcher:
+  ```powershell
+  $env:JUPYTER_RUNTIME_DIR="$PWD\.jupyter_runtime"
+  .\.venv\Scripts\jupyter-lab.exe
+  ```
+- **Fix 3:** Unblock the venv executables that Windows may have quarantined after download:
+  ```powershell
+  Get-ChildItem ".\.venv\Scripts\*.exe" | Unblock-File
+  ```
+  Then retry `python -m jupyter lab`.
+- **Fix 4:** On Windows 10 1905 or newer, the built-in Python app alias may intercept the call. Disable it via **Start → Manage App Execution Aliases** and turn off any Python entries.
 
 **Windows: `'sh' is not recognized as an internal or external command`**
 - This message appears in the PowerShell window after JupyterLab starts. It comes from `jupyter_lsp`, which checks for language server tools by trying to run `sh` (a Unix shell). `sh` does not exist on Windows.
