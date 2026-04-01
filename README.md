@@ -314,8 +314,10 @@ Launch the notebook:
 
 ```powershell
 $env:JUPYTER_RUNTIME_DIR="$PWD\.jupyter_runtime"
-python -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+python -m jupyterlab quote_extractor_notebook_forcsvfiles.ipynb
 ```
+
+> **Why `python -m jupyterlab` and not `python -m jupyter lab`?** On Windows, `python -m jupyter lab` (with a space) calls `jupyter.exe`, which internally spawns `jupyterlab.exe` as a subprocess — this subprocess call is what triggers `[WinError 5] Access is denied`. `python -m jupyterlab` (single word, no space) invokes the `jupyterlab` module directly via Python with no subprocess indirection, and reliably avoids the issue.
 
 The R initialisation cell in the notebook automatically locates your R installation — no manual environment variable setup is required for standard R installs.
 
@@ -361,7 +363,7 @@ uv run jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 If `uv run` is not available, fall back to:
 
 ```powershell
-python -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+python -m jupyterlab quote_extractor_notebook_forcsvfiles.ipynb
 ```
 
 ---
@@ -458,7 +460,7 @@ jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 cd C:\Users\<you>\Documents\quotation-tool
 .\.venv\Scripts\Activate.ps1
 $env:JUPYTER_RUNTIME_DIR="$PWD\.jupyter_runtime"
-python -m jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
+python -m jupyterlab quote_extractor_notebook_forcsvfiles.ipynb
 # or with uv: uv run jupyter lab quote_extractor_notebook_forcsvfiles.ipynb
 ```
 
