@@ -632,6 +632,8 @@ As a guideline:
 
 ## Reference and Acknowledgments
 
+This notebook and associated project was supported through the Language Data Commons of Australia, including technical assistance, general advice, and notebook development from the University of Sydney. It integrates a modified version of the [Quotation tool notebook](https://github.com/Australian-Text-Analytics-Platform/quotation-tool) developed by the Sydney Informatics Hub. The Language Data Commons of Australia is a co-investment partnership with the Australian Research Data Commons (ARDC) through the [HASS and Indigenous Research Data Commons](https://doi.org/10.47486/HIR001) (https://doi.org/10.47486/HIR001). The ARDC is enabled by the Australian Government’s National Collaborative Research Infrastructure Strategy (NCRIS).
+
 This workflow integrates:
 - The ATAP QuotationTool, adapted (with permission) from the [GenderGapTracker](https://github.com/sfu-discourse-lab/GenderGapTracker/tree/master/nlp/english)
 - Custom R-based preprocessing and statement creation pipeline
